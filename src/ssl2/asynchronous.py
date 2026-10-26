@@ -110,13 +110,16 @@ class TLSStream:
         proxy: Proxy | None = None,
         timeout: float | None = None,
         proxy_context: ClientContext | None = None,
+        server_hostname: str | None = None,
     ) -> Self:
         async with asyncio.timeout(timeout):
             tunnel = await cls.tunnel(
                 context if proxy_context is None else proxy_context, address, proxy
             )
             try:
-                buffer = context.create_buffer(address[0])
+                buffer = context.create_buffer(
+                    address[0] if server_hostname is None else server_hostname
+                )
                 if tunnel.socket is not None and not tunnel.leftover:
                     return await cls.open_socket(context, buffer, tunnel.socket)
                 return await cls.open(

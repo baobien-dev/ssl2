@@ -197,8 +197,11 @@ class TLSSocket:
         proxy: Proxy | None = None,
         timeout: float | None = None,
         proxy_context: ClientContext | None = None,
+        server_hostname: str | None = None,
     ) -> Self:
-        buffer = context.create_buffer(address[0])
+        buffer = context.create_buffer(
+            address[0] if server_hostname is None else server_hostname
+        )
         if proxy is None:
             return cls.open_socket(
                 context, buffer, socket.create_connection(address, timeout=timeout)
