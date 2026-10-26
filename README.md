@@ -142,7 +142,7 @@ proxy = Proxy.parse("socks5h://user:secret@proxy.example:1080")  # http, https, 
 print(proxy.scheme, proxy.host, proxy.port, proxy.credentials)
 ```
 
-`socks4` and `socks5` resolve the destination locally, `socks4a`, `socks5h` and the HTTP schemes let the proxy resolve it, and an `https` proxy carries TLS inside TLS with the same client context. A refusal raises `ProxyError` with the proxy's reason.
+`socks4` and `socks5` resolve the destination locally, `socks4a`, `socks5h` and the HTTP schemes let the proxy resolve it, and an `https` proxy carries TLS inside TLS with the same client context, or with `proxy_context=` on `connect` when given; CONNECT is HTTP/1.1, so that context should offer only `http/1.1`. A refusal raises `ProxyError` with the proxy's reason.
 
 ## Sockets and streams on any engine
 

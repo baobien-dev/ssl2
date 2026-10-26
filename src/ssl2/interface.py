@@ -196,6 +196,7 @@ class TLSSocket:
         *,
         proxy: Proxy | None = None,
         timeout: float | None = None,
+        proxy_context: ClientContext | None = None,
     ) -> Self:
         buffer = context.create_buffer(address[0])
         if proxy is None:
@@ -203,7 +204,11 @@ class TLSSocket:
                 context, buffer, socket.create_connection(address, timeout=timeout)
             )
         if proxy.scheme is ProxyScheme.HTTPS:
-            hop = cls.connect(context, (proxy.host, proxy.port), timeout=timeout)
+            hop = cls.connect(
+                context if proxy_context is None else proxy_context,
+                (proxy.host, proxy.port),
+                timeout=timeout,
+            )
             try:
                 return cls.open(context, buffer, hop, cls._tunnel(proxy, address, hop))
             except BaseException:
