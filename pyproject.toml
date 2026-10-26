@@ -1,9 +1,9 @@
 [project]
 name = "ssl2"
-version = "1.0.0"
+version = "1.0.1"
 description = "PEP 748 TLS interface: typed ClientHello model and parser, JA3, JA4 and Akamai fingerprints, proxies, sockets and asyncio streams"
 readme = "README.md"
-requires-python = ">=3.14.8"
+requires-python = ">=3.14"
 dependencies = []
 
 [project.urls]
