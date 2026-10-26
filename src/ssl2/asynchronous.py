@@ -20,6 +20,10 @@ class AsyncTransport(Protocol):
 
     async def close(self) -> None: ...
 
+    def getsockname(self) -> tuple[str | None, int]: ...
+
+    def getpeername(self) -> tuple[str | None, int]: ...
+
 
 class StreamTransport:
     def __init__(
@@ -37,6 +41,12 @@ class StreamTransport:
 
     async def close(self) -> None:
         self._writer.close()
+
+    def getsockname(self) -> tuple[str | None, int]:
+        return self._writer.get_extra_info("sockname")
+
+    def getpeername(self) -> tuple[str | None, int]:
+        return self._writer.get_extra_info("peername")
 
 
 class SocketTransport:
@@ -76,6 +86,12 @@ class SocketTransport:
 
     async def close(self) -> None:
         self._socket.close()
+
+    def getsockname(self) -> tuple[str | None, int]:
+        return self._socket.getsockname()
+
+    def getpeername(self) -> tuple[str | None, int]:
+        return self._socket.getpeername()
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +232,12 @@ class TLSStream:
 
     def getpeercert(self) -> bytes | None:
         return self._buffer.getpeercert()
+
+    def getsockname(self) -> tuple[str | None, int]:
+        return self._transport.getsockname()
+
+    def getpeername(self) -> tuple[str | None, int]:
+        return self._transport.getpeername()
 
     @classmethod
     async def associate(

@@ -167,7 +167,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`context` is an engine's `ClientContext`. `server_hostname=` names the server for SNI and certificate verification when the address is not that name, such as an IP address picked in advance. A peer that drops TCP without close_notify reads as `b""`, the same default the `ssl` module has. On a direct connection, and behind an HTTP or SOCKS proxy, both hand the TCP socket to the engine through `TLSBuffer.attach`, so records move between the kernel and the TLS state without a stop in Python; behind an HTTPS proxy, or over any other `AsyncTransport`, the records go through the buffer's memory BIOs instead. A socket timeout applies to every wait.
+`context` is an engine's `ClientContext`. `server_hostname=` names the server for SNI and certificate verification when the address is not that name, such as an IP address picked in advance. A peer that drops TCP without close_notify reads as `b""`, the same default the `ssl` module has. On a direct connection, and behind an HTTP or SOCKS proxy, both hand the TCP socket to the engine through `TLSBuffer.attach`, so records move between the kernel and the TLS state without a stop in Python; behind an HTTPS proxy, or over any other `AsyncTransport`, the records go through the buffer's memory BIOs instead. A socket timeout applies to every wait. An `AsyncTransport` answers `getsockname()` and `getpeername()` like a socket, and a `TLSStream` passes the question to the transport under it, so a stream behind an HTTPS proxy names the TCP socket to the proxy.
 
 ## Writing an engine
 
