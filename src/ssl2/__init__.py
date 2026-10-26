@@ -6,7 +6,6 @@ from ssl2.asynchronous import (
     Tunnel,
 )
 from ssl2.client_hello import (
-    CHROME_TRUST_ANCHOR_IDS,
     ClientHello,
     ClientHelloBuilder,
     ClientHelloParser,
@@ -65,7 +64,6 @@ from ssl2.parameters import (
 from ssl2.proxy import Proxy, ProxyCredentials, ProxyError, ProxyScheme
 
 __all__ = (
-    "CHROME_TRUST_ANCHOR_IDS",
     "JA3",
     "JA4",
     "AkamaiFingerprint",

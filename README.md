@@ -118,7 +118,7 @@ print(JA3.parse(JA3.of(chrome).text) == JA3.of(chrome))  # True
 
 `JA3.builder()` starts a `ClientHelloBuilder` from the JA3 fields; the payloads JA3 does not carry, such as signature schemes, key shares and ALPN, go in before `build()`.
 
-`.trust_anchor_ids("44947.2.1", ...)` lists the trust anchor identifiers of draft-ietf-tls-trust-anchor-ids in dotted form, which the parser reads back from the wire. `CHROME_TRUST_ANCHOR_IDS` is the 28 Chrome 155 requests, and `TrustAnchorIdentifier.encode` and `.decode` move between the dotted form and the wire bytes.
+`.trust_anchor_ids("44947.2.1", ...)` lists the trust anchor identifiers of draft-ietf-tls-trust-anchor-ids in dotted form, which the parser reads back from the wire. `TrustAnchorIdentifier.encode` and `.decode` move between the dotted form and the wire bytes.
 
 ## Configuration, credentials, trust
 
