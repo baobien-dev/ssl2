@@ -1,5 +1,11 @@
 from ssl2.asynchronous import AsyncTransport, StreamTransport, TLSStream
-from ssl2.client_hello import ClientHello, ClientHelloBuilder, ClientHelloParser
+from ssl2.client_hello import (
+    CHROME_TRUST_ANCHOR_IDS,
+    ClientHello,
+    ClientHelloBuilder,
+    ClientHelloParser,
+    TrustAnchorIdentifier,
+)
 from ssl2.credentials import (
     Certificate,
     Credential,
@@ -53,6 +59,7 @@ from ssl2.parameters import (
 from ssl2.proxy import Proxy, ProxyCredentials, ProxyError, ProxyScheme
 
 __all__ = (
+    "CHROME_TRUST_ANCHOR_IDS",
     "JA3",
     "JA4",
     "AkamaiFingerprint",
@@ -100,6 +107,7 @@ __all__ = (
     "TLSStream",
     "TLSVersion",
     "Transport",
+    "TrustAnchorIdentifier",
     "TrustStore",
     "WantReadError",
     "WantWriteError",

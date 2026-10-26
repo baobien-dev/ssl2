@@ -34,6 +34,7 @@ class ClientHello:
     psk_key_exchange_modes: tuple[PskKeyExchangeMode, ...] = ()
     delegated_credential_schemes: tuple[SignatureScheme, ...] = ()
     record_size_limit: int | None = None
+    trust_anchor_ids: tuple[str, ...] = ()
     grease: bool = False
     permute_extensions: bool = False
 
@@ -58,6 +59,7 @@ class ClientHello:
             (self.psk_key_exchange_modes, ExtensionType.psk_key_exchange_modes),
             (self.delegated_credential_schemes, ExtensionType.delegated_credential),
             (self.record_size_limit, ExtensionType.record_size_limit),
+            (self.trust_anchor_ids, ExtensionType.trust_anchors),
         )
         for value, extension in payloads:
             if bool(value) != self.offers(extension):
@@ -106,6 +108,69 @@ class ClientHello:
 
 
 EMPTY_CLIENT_HELLO: Final = ClientHello(cipher_suites=(), extensions=())
+# the trust anchor identifiers Chrome 155 requests: its root store, in the dotted form of draft-ietf-tls-trust-anchor-ids
+CHROME_TRUST_ANCHOR_IDS: Final = (
+    "44947.2.1",
+    "44947.2.6",
+    "44947.2.13",
+    "44947.2.14",
+    "44947.2.15",
+    "44947.2.18",
+    "44947.2.19",
+    "44947.2.20",
+    "52580.200109.1.7",
+    "52580.200109.1.8",
+    "52580.200109.1.9",
+    "52580.200109.1.10",
+    "52580.200109.1.11",
+    "52580.200109.1.12",
+    "52580.200109.1.13",
+    "52580.200109.1.18",
+    "52580.200109.1.19",
+    "11129.9.1",
+    "11129.9.4",
+    "11129.9.5",
+    "11129.9.6",
+    "11129.9.7",
+    "11129.9.8",
+    "11129.9.10",
+    "11129.9.11",
+    "11129.9.12",
+    "11129.9.13",
+    "11129.9.15",
+)
+
+
+@final
+class TrustAnchorIdentifier:
+    # draft-ietf-tls-trust-anchor-ids: a relative object identifier, dotted in the model and base-128 arcs on the wire
+    @staticmethod
+    def encode(dotted: str) -> bytes:
+        wire = bytearray()
+        for arc in dotted.split("."):
+            number = int(arc)
+            groups = [number & 0x7F]
+            number >>= 7
+            while number:
+                groups.append(0x80 | (number & 0x7F))
+                number >>= 7
+            wire += bytes(reversed(groups))
+        return bytes(wire)
+
+    @staticmethod
+    def decode(wire: bytes) -> str:
+        arcs: list[int] = []
+        number = 0
+        open_arc = False
+        for byte in wire:
+            number = (number << 7) | (byte & 0x7F)
+            open_arc = bool(byte & 0x80)
+            if not open_arc:
+                arcs.append(number)
+                number = 0
+        if open_arc or not arcs:
+            raise ValueError("malformed trust anchor identifier")
+        return ".".join(str(arc) for arc in arcs)
 
 
 class ClientHelloBuilder:
@@ -174,6 +239,9 @@ class ClientHelloBuilder:
 
     def record_size_limit(self, limit: int | None) -> Self:
         return self._set("record_size_limit", limit)
+
+    def trust_anchor_ids(self, *identifiers: str) -> Self:
+        return self._set("trust_anchor_ids", identifiers)
 
     def grease(self, enabled: bool = True) -> Self:
         return self._set("grease", enabled)
@@ -341,6 +409,11 @@ class ClientHelloParser:
                 )
             case ExtensionType.record_size_limit:
                 self._fields["record_size_limit"] = payload.integer(2)
+            case ExtensionType.trust_anchors:
+                self._fields["trust_anchor_ids"] = tuple(
+                    TrustAnchorIdentifier.decode(identifier)
+                    for identifier in payload.strings(2, 1)
+                )
             case _:
                 pass
 
