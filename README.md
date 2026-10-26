@@ -167,8 +167,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`context` is an engine's `ClientContext`. A peer that drops TCP without close_notify reads as `b""`, the same default the `ssl` module has.
+`context` is an engine's `ClientContext`. A peer that drops TCP without close_notify reads as `b""`, the same default the `ssl` module has. On a direct connection, and behind an HTTP or SOCKS proxy, both hand the TCP socket to the engine through `TLSBuffer.attach`, so records move between the kernel and the TLS state without a stop in Python; behind an HTTPS proxy, or over any other `AsyncTransport`, the records go through the buffer's memory BIOs instead. A socket timeout applies to every wait.
 
 ## Writing an engine
 
-An engine implements `ClientContext`, `ServerContext` and `TLSBuffer` from `ssl2.interface` and exposes `TLSImplementation(ClientContext, ServerContext, validate_config)`. `TLSSocket` and `TLSStream` drive any such `TLSBuffer`; `SessionCache` stores what the engine records.
+An engine implements `ClientContext`, `ServerContext` and `TLSBuffer` from `ssl2.interface` and exposes `TLSImplementation(ClientContext, ServerContext, validate_config)`. `TLSSocket` and `TLSStream` drive any such `TLSBuffer`, through its memory BIOs or, when the buffer implements `attach(fileno)`, by handing it the socket; `getpeerchain()` returns the certificates the peer sent, leaf first. `SessionCache` stores what the engine records.

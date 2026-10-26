@@ -1,7 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Self
+from typing import Self
 
 from ssl2.client_hello import ClientHello, ClientHelloBuilder
 from ssl2.parameters import (
@@ -15,8 +15,8 @@ from ssl2.parameters import (
     SignatureScheme,
 )
 
-JA4_HASH_LENGTH: Final = 12
-JA4_UNHASHED_EXTENSIONS: Final = frozenset(
+JA4_HASH_LENGTH = 12
+JA4_UNHASHED_EXTENSIONS = frozenset(
     {ExtensionType.server_name, ExtensionType.application_layer_protocol_negotiation}
 )
 

@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from typing import Final, Self, final
+from typing import Self
 
 from ssl2.parameters import (
     CertificateCompressionAlgorithm,
@@ -107,9 +107,9 @@ class ClientHello:
         return position == len(part)
 
 
-EMPTY_CLIENT_HELLO: Final = ClientHello(cipher_suites=(), extensions=())
+EMPTY_CLIENT_HELLO = ClientHello(cipher_suites=(), extensions=())
 # the trust anchor identifiers Chrome 155 requests: its root store, in the dotted form of draft-ietf-tls-trust-anchor-ids
-CHROME_TRUST_ANCHOR_IDS: Final = (
+CHROME_TRUST_ANCHOR_IDS = (
     "44947.2.1",
     "44947.2.6",
     "44947.2.13",
@@ -141,7 +141,6 @@ CHROME_TRUST_ANCHOR_IDS: Final = (
 )
 
 
-@final
 class TrustAnchorIdentifier:
     # draft-ietf-tls-trust-anchor-ids: a relative object identifier, dotted in the model and base-128 arcs on the wire
     @staticmethod
@@ -264,7 +263,6 @@ class ClientHelloBuilder:
         )
 
 
-@final
 class ByteReader:
     def __init__(self, data: bytes) -> None:
         self._data = data
@@ -304,7 +302,6 @@ class ByteReader:
         return tuple(items)
 
 
-@final
 class ClientHelloParser:
     def __init__(self) -> None:
         self._fields: dict[str, object] = {}
@@ -329,7 +326,7 @@ class ClientHelloParser:
         message = bytearray()
         while reader.remaining:
             content_type = reader.integer(1)
-            _ = reader.take(2)
+            reader.take(2)
             fragment = reader.vector(2)
             if content_type != ContentType.handshake:
                 raise ValueError("record is not a handshake record")
@@ -342,12 +339,12 @@ class ClientHelloParser:
 
     def _read_body(self, body: ByteReader) -> None:
         legacy_version = ProtocolVersion(body.integer(2))
-        _ = body.take(32)
-        _ = body.vector(1)
+        body.take(32)
+        body.vector(1)
         self._fields["legacy_version"] = legacy_version
         self._fields["supported_versions"] = (legacy_version,)
         self._fields["cipher_suites"] = self._typed(CipherSuite, body.integers(2, 2))
-        _ = body.vector(1)
+        body.vector(1)
         extensions: list[ExtensionType] = []
         if body.remaining:
             block = ByteReader(body.vector(2))
@@ -391,7 +388,7 @@ class ClientHelloParser:
                 groups: list[int] = []
                 while shares.remaining:
                     groups.append(shares.integer(2))
-                    _ = shares.vector(2)
+                    shares.vector(2)
                 self._fields["key_share_groups"] = self._typed(
                     NamedGroup, tuple(groups)
                 )

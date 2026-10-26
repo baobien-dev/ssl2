@@ -1,15 +1,16 @@
 import asyncio
 import socket
 from collections.abc import Callable, Generator
+from dataclasses import dataclass
 from functools import partial
-from typing import Final, Protocol, Self, cast, final
+from typing import Protocol, Self, cast
 
 from ssl2.errors import RaggedEOF, WantReadError, WantWriteError
 from ssl2.interface import RECEIVE_SIZE, ClientContext, ServerContext, TLSBuffer
 from ssl2.parameters import CipherSuite, NextProtocol, TLSVersion
 from ssl2.proxy import Proxy, ProxyError, ProxyScheme
 
-SHUTDOWN_TIMEOUT: Final = 5.0
+SHUTDOWN_TIMEOUT = 5.0
 
 
 class AsyncTransport(Protocol):
@@ -20,7 +21,6 @@ class AsyncTransport(Protocol):
     async def close(self) -> None: ...
 
 
-@final
 class StreamTransport:
     def __init__(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -39,17 +39,67 @@ class StreamTransport:
         self._writer.close()
 
 
-@final
+class SocketTransport:
+    def __init__(self, sock: socket.socket) -> None:
+        self._socket = sock
+        self._loop = asyncio.get_running_loop()
+
+    @classmethod
+    async def connect(cls, address: tuple[str, int]) -> Self:
+        loop = asyncio.get_running_loop()
+        host, port = address
+        failure = OSError(f"{host}:{port} resolves to no address")
+        for family, kind, protocol, _, resolved in await loop.getaddrinfo(
+            host, port, type=socket.SOCK_STREAM
+        ):
+            sock = socket.socket(family, kind, protocol)
+            sock.setblocking(False)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            try:
+                await loop.sock_connect(sock, resolved)
+            except OSError as error:
+                sock.close()
+                failure = error
+                continue
+            return cls(sock)
+        raise failure
+
+    @property
+    def socket(self) -> socket.socket:
+        return self._socket
+
+    async def read(self, limit: int) -> bytes:
+        return await self._loop.sock_recv(self._socket, limit)
+
+    async def write(self, data: bytes) -> None:
+        await self._loop.sock_sendall(self._socket, data)
+
+    async def close(self) -> None:
+        self._socket.close()
+
+
+@dataclass(frozen=True, slots=True)
+class Tunnel:
+    transport: AsyncTransport
+    leftover: bytes
+    # the TCP socket under the transport, when TLS can take it over; None behind a TLS hop
+    socket: socket.socket | None
+
+
 class TLSStream:
     def __init__(
         self,
         context: ClientContext | ServerContext,
         buffer: TLSBuffer,
         transport: AsyncTransport,
+        sock: socket.socket | None = None,
     ) -> None:
         self._context = context
         self._buffer = buffer
         self._transport = transport
+        # with a socket, BoringSSL reads and writes the kernel itself; without one the records go through the transport
+        self._socket = sock
+        self._loop = asyncio.get_running_loop()
 
     @classmethod
     async def connect(
@@ -61,33 +111,39 @@ class TLSStream:
         timeout: float | None = None,
     ) -> Self:
         async with asyncio.timeout(timeout):
-            transport, leftover = await cls.tunnel(context, address, proxy)
+            tunnel = await cls.tunnel(context, address, proxy)
             try:
+                buffer = context.create_buffer(address[0])
+                if tunnel.socket is not None and not tunnel.leftover:
+                    return await cls.open_socket(context, buffer, tunnel.socket)
                 return await cls.open(
-                    context, context.create_buffer(address[0]), transport, leftover
+                    context, buffer, tunnel.transport, tunnel.leftover
                 )
             except BaseException:
-                await transport.close()
+                await tunnel.transport.close()
                 raise
 
     @classmethod
     async def tunnel(
         cls, context: ClientContext, address: tuple[str, int], proxy: Proxy | None
-    ) -> tuple[AsyncTransport, bytes]:
+    ) -> Tunnel:
         if proxy is None:
-            return StreamTransport(*await asyncio.open_connection(*address)), b""
-        transport: AsyncTransport
+            direct = await SocketTransport.connect(address)
+            return Tunnel(direct, b"", direct.socket)
+        hop: AsyncTransport
+        sock: socket.socket | None
         if proxy.scheme is ProxyScheme.HTTPS:
-            transport = await cls.connect(context, (proxy.host, proxy.port))
+            hop = await cls.connect(context, (proxy.host, proxy.port))
+            sock = None
         else:
-            transport = StreamTransport(
-                *await asyncio.open_connection(proxy.host, proxy.port)
-            )
+            plain = await SocketTransport.connect((proxy.host, proxy.port))
+            hop, sock = plain, plain.socket
         try:
-            return transport, await cls._tunnel(proxy, address, transport)
+            leftover = await cls._tunnel(proxy, address, hop)
         except BaseException:
-            await transport.close()
+            await hop.close()
             raise
+        return Tunnel(hop, leftover, sock)
 
     @classmethod
     async def open(
@@ -100,6 +156,18 @@ class TLSStream:
         self = cls(context, buffer, transport)
         if leftover:
             buffer.process_incoming(leftover)
+        await self._run(buffer.do_handshake)
+        return self
+
+    @classmethod
+    async def open_socket(
+        cls,
+        context: ClientContext | ServerContext,
+        buffer: TLSBuffer,
+        sock: socket.socket,
+    ) -> Self:
+        buffer.attach(sock.fileno())
+        self = cls(context, buffer, SocketTransport(sock), sock)
         await self._run(buffer.do_handshake)
         return self
 
@@ -118,10 +186,9 @@ class TLSStream:
             return b""
 
     async def write(self, data: bytes) -> None:
-        view = memoryview(data)
-        while view:
-            written = await self._run(partial(self._buffer.write, view))
-            view = view[written:]
+        while data:
+            written = await self._run(partial(self._buffer.write, data))
+            data = data[written:]
 
     async def close(self) -> None:
         try:
@@ -196,14 +263,36 @@ class TLSStream:
             try:
                 result = operation()
             except WantReadError:
-                await self._flush()
-                await self._fill()
+                if self._socket is None:
+                    await self._flush()
+                    await self._fill()
+                else:
+                    await self._ready(self._loop.add_reader, self._loop.remove_reader)
                 continue
             except WantWriteError:
-                await self._flush()
+                if self._socket is None:
+                    await self._flush()
+                else:
+                    await self._ready(self._loop.add_writer, self._loop.remove_writer)
                 continue
-            await self._flush()
+            if self._socket is None:
+                await self._flush()
             return result
+
+    async def _ready(
+        self,
+        watch: Callable[[int, Callable[[], None]], object],
+        unwatch: Callable[[int], object],
+    ) -> None:
+        if self._socket is None:
+            return
+        fileno = self._socket.fileno()
+        waiter: asyncio.Future[None] = self._loop.create_future()
+        watch(fileno, lambda: None if waiter.done() else waiter.set_result(None))
+        try:
+            await waiter
+        finally:
+            unwatch(fileno)
 
     async def _flush(self) -> None:
         # one take of everything buffered: draining a memory BIO in small pieces moves the remainder each time

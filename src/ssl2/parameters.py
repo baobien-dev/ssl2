@@ -1,6 +1,6 @@
 # generated from the IANA registry CSV files and BoringSSL tls1.h at 8f77af2e, so regenerate rather than edit
 from enum import Enum, IntEnum
-from typing import Final, Self, override
+from typing import Self, override
 
 
 class CodePoint(IntEnum):
@@ -55,13 +55,13 @@ class ProtocolVersion(CodePoint):
         return TLS_VERSIONS.get(self)
 
 
-PROTOCOL_VERSIONS: Final = {
+PROTOCOL_VERSIONS = {
     TLSVersion.TLSv1_0: ProtocolVersion.TLS_1_0,
     TLSVersion.TLSv1_1: ProtocolVersion.TLS_1_1,
     TLSVersion.TLSv1_2: ProtocolVersion.TLS_1_2,
     TLSVersion.TLSv1_3: ProtocolVersion.TLS_1_3,
 }
-TLS_VERSIONS: Final = {protocol: named for named, protocol in PROTOCOL_VERSIONS.items()}
+TLS_VERSIONS = {protocol: named for named, protocol in PROTOCOL_VERSIONS.items()}
 
 
 class ServerNameType(CodePoint):

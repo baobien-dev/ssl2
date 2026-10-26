@@ -5,11 +5,11 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Self
+from typing import Self
 
 from ssl2.errors import ConfigurationError
 
-LINUX_CANDIDATES: Final = (
+LINUX_CANDIDATES = (
     Path("/etc/ssl/certs/ca-certificates.crt"),
     Path("/etc/pki/tls/certs/ca-bundle.crt"),
     Path("/etc/ssl/ca-bundle.pem"),
@@ -20,11 +20,11 @@ LINUX_CANDIDATES: Final = (
     Path("/etc/pki/tls/certs"),
     Path("/system/etc/security/cacerts"),
 )
-DARWIN_CANDIDATES: Final = (
+DARWIN_CANDIDATES = (
     Path("/etc/ssl/cert.pem"),
     Path("/private/etc/ssl/cert.pem"),
 )
-X509_ASN_ENCODING: Final = 0x00000001
+X509_ASN_ENCODING = 0x00000001
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +115,7 @@ class TrustStore(Credential):
                         + b"-----END CERTIFICATE-----\n"
                     )
                 context = enumerate_store(store, context)
-            _ = close_store(store, 0)
+            close_store(store, 0)
         return b"".join(chunks)
 
 

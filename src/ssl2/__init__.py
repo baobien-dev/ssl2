@@ -1,4 +1,10 @@
-from ssl2.asynchronous import AsyncTransport, StreamTransport, TLSStream
+from ssl2.asynchronous import (
+    AsyncTransport,
+    SocketTransport,
+    StreamTransport,
+    TLSStream,
+    Tunnel,
+)
 from ssl2.client_hello import (
     CHROME_TRUST_ANCHOR_IDS,
     ClientHello,
@@ -97,6 +103,7 @@ __all__ = (
     "SessionCache",
     "SignatureScheme",
     "SigningChain",
+    "SocketTransport",
     "StreamTransport",
     "TLSBuffer",
     "TLSClientConfiguration",
@@ -109,6 +116,7 @@ __all__ = (
     "Transport",
     "TrustAnchorIdentifier",
     "TrustStore",
+    "Tunnel",
     "WantReadError",
     "WantWriteError",
 )

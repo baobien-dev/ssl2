@@ -1,10 +1,11 @@
 import errno
+import select
 import socket
 from collections import OrderedDict
 from collections.abc import Buffer, Callable, Sequence
 from dataclasses import dataclass
 from threading import Lock
-from typing import Final, Protocol, Self, final, overload
+from typing import Protocol, Self, overload
 
 from ssl2.client_hello import ClientHello
 from ssl2.credentials import SigningChain, TrustStore
@@ -12,7 +13,7 @@ from ssl2.errors import ConfigurationError, RaggedEOF, WantReadError, WantWriteE
 from ssl2.parameters import CipherSuite, NextProtocol, TLSVersion
 from ssl2.proxy import Proxy, ProxyError, ProxyScheme
 
-RECEIVE_SIZE: Final = 65536
+RECEIVE_SIZE = 65536
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +85,10 @@ class TLSBuffer(Protocol):
 
     def getpeercert(self) -> bytes | None: ...
 
+    def getpeerchain(self) -> tuple[bytes, ...]: ...
+
+    def attach(self, fileno: int, /) -> None: ...
+
 
 class ClientContext(Protocol):
     def __init__(self, configuration: TLSClientConfiguration) -> None: ...
@@ -114,7 +119,6 @@ class TLSImplementation[ClientContextT: ClientContext, ServerContextT: ServerCon
     validate_config: Callable[[TLSClientConfiguration | TLSServerConfiguration], None]
 
 
-@final
 class SessionCache:
     def __init__(self, limit: int = 1024) -> None:
         self._entries: OrderedDict[str, tuple[bytes, bool]] = OrderedDict()
@@ -126,7 +130,7 @@ class SessionCache:
             self._entries[key] = (session, single_use)
             self._entries.move_to_end(key)
             while len(self._entries) > self._limit:
-                _ = self._entries.popitem(last=False)
+                self._entries.popitem(last=False)
 
     def take(self, key: str) -> bytes | None:
         with self._lock:
@@ -170,9 +174,10 @@ class Listening:
 class Connected:
     buffer: TLSBuffer
     transport: Transport
+    # the socket BoringSSL reads and writes itself; None when the records go through the transport in Python
+    socket: socket.socket | None = None
 
 
-@final
 class TLSSocket:
     def __init__(
         self, context: ClientContext | ServerContext, state: Listening | Connected
@@ -180,6 +185,8 @@ class TLSSocket:
         self._context = context
         self._state = state
         self._unsent = b""
+        # the timeout of an attached socket lives here: the socket itself stays non-blocking for BoringSSL
+        self._timeout: float | None = None
 
     @classmethod
     def connect(
@@ -190,22 +197,26 @@ class TLSSocket:
         proxy: Proxy | None = None,
         timeout: float | None = None,
     ) -> Self:
-        transport: Transport
+        buffer = context.create_buffer(address[0])
         if proxy is None:
-            transport = socket.create_connection(address, timeout=timeout)
-        elif proxy.scheme is ProxyScheme.HTTPS:
-            transport = cls.connect(context, (proxy.host, proxy.port), timeout=timeout)
-        else:
-            transport = socket.create_connection(
-                (proxy.host, proxy.port), timeout=timeout
+            return cls.open_socket(
+                context, buffer, socket.create_connection(address, timeout=timeout)
             )
+        if proxy.scheme is ProxyScheme.HTTPS:
+            hop = cls.connect(context, (proxy.host, proxy.port), timeout=timeout)
+            try:
+                return cls.open(context, buffer, hop, cls._tunnel(proxy, address, hop))
+            except BaseException:
+                hop.close()
+                raise
+        plain = socket.create_connection((proxy.host, proxy.port), timeout=timeout)
         try:
-            leftover = b"" if proxy is None else cls._tunnel(proxy, address, transport)
-            return cls.open(
-                context, context.create_buffer(address[0]), transport, leftover
-            )
+            leftover = cls._tunnel(proxy, address, plain)
+            if leftover:
+                return cls.open(context, buffer, plain, leftover)
+            return cls.open_socket(context, buffer, plain)
         except BaseException:
-            transport.close()
+            plain.close()
             raise
 
     @classmethod
@@ -220,6 +231,24 @@ class TLSSocket:
         if leftover:
             buffer.process_incoming(leftover)
         self._run(buffer.do_handshake)
+        return self
+
+    @classmethod
+    def open_socket(
+        cls,
+        context: ClientContext | ServerContext,
+        buffer: TLSBuffer,
+        sock: socket.socket,
+    ) -> Self:
+        buffer.attach(sock.fileno())
+        self = cls(context, Connected(buffer, sock, sock))
+        self._timeout = sock.gettimeout()
+        sock.setblocking(False)
+        try:
+            self._run(buffer.do_handshake)
+        except BaseException:
+            sock.close()
+            raise
         return self
 
     @classmethod
@@ -276,7 +305,7 @@ class TLSSocket:
         accepted: tuple[socket.socket, tuple[str | None, int]] = (
             listening.listener.accept()
         )
-        return type(self).open(
+        return type(self).open_socket(
             self._context, listening.accept(), accepted[0]
         ), accepted[1]
 
@@ -289,6 +318,9 @@ class TLSSocket:
     def getpeercert(self) -> bytes | None:
         return self._connected().buffer.getpeercert()
 
+    def getpeerchain(self) -> tuple[bytes, ...]:
+        return self._connected().buffer.getpeerchain()
+
     def cipher(self) -> CipherSuite | int | None:
         return self._connected().buffer.cipher()
 
@@ -300,9 +332,14 @@ class TLSSocket:
         return self._connected().buffer.negotiated_tls_version
 
     def settimeout(self, value: float | None) -> None:
-        self._endpoint().settimeout(value)
+        if isinstance(self._state, Connected) and self._state.socket is not None:
+            self._timeout = value
+        else:
+            self._endpoint().settimeout(value)
 
     def gettimeout(self) -> float | None:
+        if isinstance(self._state, Connected) and self._state.socket is not None:
+            return self._timeout
         return self._endpoint().gettimeout()
 
     def fileno(self) -> int:
@@ -358,18 +395,37 @@ class TLSSocket:
 
     def _run[ResultT](self, operation: Callable[[], ResultT]) -> ResultT:
         connection = self._connected()
+        sock = connection.socket
         while True:
             try:
                 result = operation()
             except WantReadError:
-                self._flush(connection)
-                self._fill(connection)
+                if sock is None:
+                    self._flush(connection)
+                    self._fill(connection)
+                elif self._timeout == 0:
+                    raise
+                else:
+                    self._wait(sock, reading=True)
                 continue
             except WantWriteError:
-                self._flush(connection)
+                if sock is None:
+                    self._flush(connection)
+                elif self._timeout == 0:
+                    raise
+                else:
+                    self._wait(sock, reading=False)
                 continue
-            self._flush(connection)
+            if sock is None:
+                self._flush(connection)
             return result
+
+    def _wait(self, sock: socket.socket, *, reading: bool) -> None:
+        readable, writable, _ = select.select(
+            [sock] if reading else [], [] if reading else [sock], [], self._timeout
+        )
+        if not readable and not writable:
+            raise TimeoutError("timed out")
 
     def _flush(self, connection: Connected) -> None:
         while self._unsent or connection.buffer.outgoing_bytes_buffered():
@@ -393,6 +449,7 @@ class TLSSocket:
     def _shutdown_once(self, connection: Connected) -> None:
         try:
             connection.buffer.shutdown()
-        except WantReadError:
+        except WantReadError, WantWriteError:
             pass
-        self._flush(connection)
+        if connection.socket is None:
+            self._flush(connection)

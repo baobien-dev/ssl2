@@ -5,15 +5,15 @@ import struct
 from collections.abc import Generator
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum
-from typing import Final, Self
+from typing import Self
 from urllib.parse import unquote, urlsplit
 
 type Conversation = Generator[tuple[bytes, int | bytes], bytes, object]
 type Association = Generator[tuple[bytes, int | bytes], bytes, tuple[str, int]]
 
-REPLY_LIMIT: Final = 65536
-USERNAME_PASSWORD_VERSION: Final = 0x01
-SOCKS4A_NAME_FOLLOWS: Final = bytes((0, 0, 0, 1))
+REPLY_LIMIT = 65536
+USERNAME_PASSWORD_VERSION = 0x01
+SOCKS4A_NAME_FOLLOWS = bytes((0, 0, 0, 1))
 
 
 class ProxyError(ConnectionError):
