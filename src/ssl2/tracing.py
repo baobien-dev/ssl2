@@ -71,13 +71,8 @@ class Trace:
 
     @override
     def __str__(self) -> str:
-        return ", ".join(
-            f"{span.name} {span.duration * self.SECONDS_TO_MILLISECONDS:.1f} ms"
-            for span in self.spans
-        )
+        return ", ".join(f"{span.name} {span.duration * self.SECONDS_TO_MILLISECONDS:.1f} ms" for span in self.spans)
 
     @property
     def total(self) -> float:
-        return (
-            max((span.end for span in self.spans), default=self.started) - self.started
-        )
+        return max((span.end for span in self.spans), default=self.started) - self.started

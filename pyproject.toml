@@ -24,14 +24,23 @@ dev = [
     "ruff>=0.17.3",
 ]
 
+[tool.ruff]
+line-length = 120
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
+    "C901",    # the size of a function is a reading matter, not a count
     "COM812",  # the formatter places trailing commas
     "CPY",     # no copyright headers
     "D",       # no docstrings
     "E501",    # the formatter wraps lines
     "EM",      # a message is written in the raise
+    "PLR0911", # returns, branches, statements and arguments are not counted either
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR0917",
     "TC",      # imports stay at the top, not under TYPE_CHECKING
     "TRY003",  # a message is written in the raise
 ]
@@ -40,14 +49,6 @@ ignore = [
 "src/ssl2/errors.py" = ["N818"]  # RaggedEOF is the name PEP 748 gives it
 "src/ssl2/registry.py" = ["N815"]  # IANA names such as brainpoolP256r1 are kept as registered
 "tools/*" = ["INP001", "T201"]  # standalone scripts that report to the person running them
-
-[tool.ruff.lint.mccabe]
-max-complexity = 20  # a wire parser has one match arm per tag
-
-[tool.ruff.lint.pylint]
-max-args = 8  # a connect call names the proxy, its context, the server name and the trace
-max-branches = 20  # the same match statements
-max-returns = 12  # a registry mapping returns one member per arm
 
 [tool.basedpyright]
 typeCheckingMode = "strict"

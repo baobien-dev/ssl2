@@ -34,9 +34,7 @@ class AsyncTransport(Protocol):
 
 
 class StreamTransport:
-    def __init__(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self._reader = reader
         self._writer = writer
 
@@ -68,9 +66,7 @@ class SocketTransport:
         loop = asyncio.get_running_loop()
         host, port = address
         failure = OSError(f"{host}:{port} resolves to no address")
-        for family, kind, protocol, _, resolved in await loop.getaddrinfo(
-            host, port, type=socket.SOCK_STREAM
-        ):
+        for family, kind, protocol, _, resolved in await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM):
             tcp_socket = socket.socket(family, kind, protocol)
             # a zero timeout is the non-blocking mode the event loop works with
             tcp_socket.settimeout(0)
@@ -151,22 +147,16 @@ class TLSStream:
     ) -> Self:
         # a time limit is the caller's: async with asyncio.timeout(seconds) around the call
         trace = trace or Trace()
-        tunnel = await cls.tunnel(
-            context if proxy_context is None else proxy_context, address, proxy, trace
-        )
+        tunnel = await cls.tunnel(context if proxy_context is None else proxy_context, address, proxy, trace)
         try:
-            buffer = context.create_buffer(
-                address[0] if server_hostname is None else server_hostname
-            )
+            buffer = context.create_buffer(address[0] if server_hostname is None else server_hostname)
             if (
                 tunnel.tcp_socket is not None
                 and not tunnel.leftover
                 and Readiness.available(asyncio.get_running_loop())
             ):
                 return await cls.open_socket(context, buffer, tunnel.tcp_socket, trace)
-            return await cls.open(
-                context, buffer, tunnel.transport, tunnel.leftover, trace
-            )
+            return await cls.open(context, buffer, tunnel.transport, tunnel.leftover, trace)
         except BaseException:
             await tunnel.transport.close()
             raise
@@ -183,9 +173,7 @@ class TLSStream:
         if proxy is None:
             with trace.span(Phase.CONNECT):
                 direct = await SocketTransport.connect(address)
-            cls.logger.info(
-                "%s host=%s port=%d", Event.CONNECTED, address[0], address[1]
-            )
+            cls.logger.info("%s host=%s port=%d", Event.CONNECTED, address[0], address[1])
             return Tunnel(direct, b"", direct.socket)
         hop: AsyncTransport
         tcp_socket: socket.socket | None
@@ -290,9 +278,7 @@ class TLSStream:
         return self._transport.getpeername()
 
     @classmethod
-    async def associate(
-        cls, proxy: Proxy, transport: AsyncTransport
-    ) -> tuple[str, int]:
+    async def associate(cls, proxy: Proxy, transport: AsyncTransport) -> tuple[str, int]:
         # a SOCKS5 UDP ASSOCIATE over the transport; the relay address is where datagrams go
         # RFC 1928 section 4: the client's address is unknown ahead of time, so the unspecified address is sent
         handshake = proxy.association((str(ipaddress.IPv4Address(0)), 0))
@@ -306,9 +292,7 @@ class TLSStream:
         return relay, port
 
     @classmethod
-    async def _tunnel(
-        cls, proxy: Proxy, destination: tuple[str, int], transport: AsyncTransport
-    ) -> bytes:
+    async def _tunnel(cls, proxy: Proxy, destination: tuple[str, int], transport: AsyncTransport) -> bytes:
         host, port = destination
         if (family := proxy.scheme.local_address_family) is not None:
             candidates = await asyncio.get_running_loop().getaddrinfo(
@@ -326,9 +310,7 @@ class TLSStream:
         return leftover
 
     @classmethod
-    async def _converse(
-        cls, handshake: ProxyHandshake, transport: AsyncTransport
-    ) -> bytes:
+    async def _converse(cls, handshake: ProxyHandshake, transport: AsyncTransport) -> bytes:
         # drives a proxy handshake over the transport; returns what arrived after the proxy's last reply
         pending = bytearray()
         step = handshake.first()
@@ -338,9 +320,7 @@ class TLSStream:
             while not (end := step.reply_end(bytes(pending))):
                 piece = await transport.read(Limit.RECEIVE)
                 if not piece:
-                    raise ProxyError(
-                        "the proxy closed the connection during the tunnel handshake"
-                    )
+                    raise ProxyError("the proxy closed the connection during the tunnel handshake")
                 pending += piece
             reply = bytes(pending[:end])
             del pending[:end]

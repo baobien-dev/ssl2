@@ -80,9 +80,7 @@ class WindowsCertificateStore:
     @classmethod
     def bundle(cls) -> bytes:
         if sys.platform != "win32":
-            raise ConfigurationError(
-                f"the Windows certificate stores are not on {sys.platform}"
-            )
+            raise ConfigurationError(f"the Windows certificate stores are not on {sys.platform}")
         crypt32 = ctypes.WinDLL("crypt32.dll")
         crypt32.CertOpenSystemStoreW.restype = ctypes.c_void_p
         crypt32.CertOpenSystemStoreW.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p)
@@ -96,9 +94,7 @@ class WindowsCertificateStore:
         for name in WindowsStoreName:
             store = crypt32.CertOpenSystemStoreW(None, name)
             if store is None:
-                raise ConfigurationError(
-                    f"cannot open the Windows {name} certificate store"
-                )
+                raise ConfigurationError(f"cannot open the Windows {name} certificate store")
             context = crypt32.CertEnumCertificatesInStore(store, None)
             while context:
                 entry = context.contents

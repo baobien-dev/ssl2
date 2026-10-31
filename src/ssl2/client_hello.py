@@ -91,31 +91,21 @@ class ClientHello(Value):
             raise ConfigurationError("supported_versions must not repeat")
         for name, members in self._code_point_lists():
             if any(member.is_grease for member in members):
-                raise ConfigurationError(
-                    f"{name} holds a GREASE value; set grease=True and the engine adds them"
-                )
+                raise ConfigurationError(f"{name} holds a GREASE value; set grease=True and the engine adds them")
         for extension, payload in self._payloads():
             if bool(payload) != self.offers(extension):
-                raise ConfigurationError(
-                    f"{extension.name} needs its payload and its extension together"
-                )
-        settings_offered = self.offers(
-            ExtensionType.application_settings
-        ) + self.offers(ExtensionType.application_settings_old)
+                raise ConfigurationError(f"{extension.name} needs its payload and its extension together")
+        settings_offered = self.offers(ExtensionType.application_settings) + self.offers(
+            ExtensionType.application_settings_old
+        )
         if settings_offered != bool(self.application_settings):
             raise ConfigurationError(
                 "application_settings needs exactly one of the two application_settings extensions"
             )
         if not self._is_subsequence(self.key_share_groups, self.supported_groups):
-            raise ConfigurationError(
-                "key_share_groups must follow the order of supported_groups"
-            )
-        if not self.offers(
-            ExtensionType.supported_versions
-        ) and self.supported_versions != (self.legacy_version,):
-            raise ConfigurationError(
-                "without the supported_versions extension only the legacy version is offered"
-            )
+            raise ConfigurationError("key_share_groups must follow the order of supported_groups")
+        if not self.offers(ExtensionType.supported_versions) and self.supported_versions != (self.legacy_version,):
+            raise ConfigurationError("without the supported_versions extension only the legacy version is offered")
 
     def offers(self, extension: ExtensionType) -> bool:
         return extension in self.extensions
@@ -160,9 +150,7 @@ class ClientHello(Value):
         )
 
     @staticmethod
-    def _is_subsequence(
-        part: tuple[NamedGroup, ...], whole: tuple[NamedGroup, ...]
-    ) -> bool:
+    def _is_subsequence(part: tuple[NamedGroup, ...], whole: tuple[NamedGroup, ...]) -> bool:
         position = 0
         for group in whole:
             if position < len(part) and part[position] == group:
@@ -204,9 +192,7 @@ class TrustAnchorIdentifier:
 class ClientHelloBuilder:
     def __init__(self) -> None:
         self._legacy_version = ProtocolVersion.TLS_1_2
-        self._supported_versions: tuple[ProtocolVersion, ...] = (
-            ProtocolVersion.TLS_1_2,
-        )
+        self._supported_versions: tuple[ProtocolVersion, ...] = (ProtocolVersion.TLS_1_2,)
         self._cipher_suites: tuple[CipherSuite, ...] = ()
         self._extensions: tuple[ExtensionType, ...] = ()
         self._supported_groups: tuple[NamedGroup, ...] = ()
@@ -215,9 +201,7 @@ class ClientHelloBuilder:
         self._signature_algorithms: tuple[SignatureScheme, ...] = ()
         self._application_protocols: tuple[bytes, ...] = ()
         self._application_settings: tuple[bytes, ...] = ()
-        self._certificate_compression_algorithms: tuple[
-            CertificateCompressionAlgorithm, ...
-        ] = ()
+        self._certificate_compression_algorithms: tuple[CertificateCompressionAlgorithm, ...] = ()
         self._psk_key_exchange_modes: tuple[PskKeyExchangeMode, ...] = ()
         self._delegated_credential_schemes: tuple[SignatureScheme, ...] = ()
         self._record_size_limit: int | None = None
@@ -230,9 +214,7 @@ class ClientHelloBuilder:
         return self
 
     def supported_versions(self, *versions: ProtocolVersion | int) -> Self:
-        self._supported_versions = tuple(
-            ProtocolVersion(version) for version in versions
-        )
+        self._supported_versions = tuple(ProtocolVersion(version) for version in versions)
         return self
 
     def cipher_suites(self, *suites: CipherSuite | int) -> Self:
@@ -252,15 +234,11 @@ class ClientHelloBuilder:
         return self
 
     def ec_point_formats(self, *formats: ECPointFormat | int) -> Self:
-        self._ec_point_formats = tuple(
-            ECPointFormat(point_format) for point_format in formats
-        )
+        self._ec_point_formats = tuple(ECPointFormat(point_format) for point_format in formats)
         return self
 
     def signature_algorithms(self, *schemes: SignatureScheme | int) -> Self:
-        self._signature_algorithms = tuple(
-            SignatureScheme(scheme) for scheme in schemes
-        )
+        self._signature_algorithms = tuple(SignatureScheme(scheme) for scheme in schemes)
         return self
 
     def application_protocols(self, *protocols: NextProtocol | bytes) -> Self:
@@ -271,9 +249,7 @@ class ClientHelloBuilder:
         self._application_settings = self._protocol_bytes(protocols)
         return self
 
-    def certificate_compression(
-        self, *algorithms: CertificateCompressionAlgorithm | int
-    ) -> Self:
+    def certificate_compression(self, *algorithms: CertificateCompressionAlgorithm | int) -> Self:
         self._certificate_compression_algorithms = tuple(
             CertificateCompressionAlgorithm(algorithm) for algorithm in algorithms
         )
@@ -284,9 +260,7 @@ class ClientHelloBuilder:
         return self
 
     def delegated_credentials(self, *schemes: SignatureScheme | int) -> Self:
-        self._delegated_credential_schemes = tuple(
-            SignatureScheme(scheme) for scheme in schemes
-        )
+        self._delegated_credential_schemes = tuple(SignatureScheme(scheme) for scheme in schemes)
         return self
 
     def record_size_limit(self, limit: int | None) -> Self:
@@ -330,10 +304,7 @@ class ClientHelloBuilder:
     def _protocol_bytes(
         protocols: tuple[NextProtocol | bytes, ...],
     ) -> tuple[bytes, ...]:
-        return tuple(
-            protocol.value if isinstance(protocol, NextProtocol) else protocol
-            for protocol in protocols
-        )
+        return tuple(protocol.value if isinstance(protocol, NextProtocol) else protocol for protocol in protocols)
 
 
 class WireReader:
@@ -347,9 +318,7 @@ class WireReader:
 
     def take(self, length: int) -> bytes:
         if length > self.remaining:
-            raise ParseError(
-                f"the ClientHello ends {length - self.remaining} bytes early at offset {self._position}"
-            )
+            raise ParseError(f"the ClientHello ends {length - self.remaining} bytes early at offset {self._position}")
         chunk = self._data[self._position : self._position + length]
         self._position += length
         return chunk
@@ -363,17 +332,12 @@ class WireReader:
     def integers(self, length_width: Width, item_width: Width) -> tuple[int, ...]:
         body = self.vector(length_width)
         if len(body) % item_width:
-            raise ParseError(
-                f"a vector of {len(body)} bytes does not hold items of {item_width} bytes"
-            )
+            raise ParseError(f"a vector of {len(body)} bytes does not hold items of {item_width} bytes")
         return tuple(
-            int.from_bytes(body[offset : offset + item_width], "big")
-            for offset in range(0, len(body), item_width)
+            int.from_bytes(body[offset : offset + item_width], "big") for offset in range(0, len(body), item_width)
         )
 
-    def strings(
-        self, length_width: Width, item_length_width: Width
-    ) -> tuple[bytes, ...]:
+    def strings(self, length_width: Width, item_length_width: Width) -> tuple[bytes, ...]:
         inner = WireReader(self.vector(length_width))
         items: list[bytes] = []
         while inner.remaining:
@@ -393,9 +357,7 @@ class ClientHelloParser:
         self._signature_algorithms: tuple[SignatureScheme, ...] = ()
         self._application_protocols: tuple[bytes, ...] = ()
         self._application_settings: tuple[bytes, ...] = ()
-        self._certificate_compression_algorithms: tuple[
-            CertificateCompressionAlgorithm, ...
-        ] = ()
+        self._certificate_compression_algorithms: tuple[CertificateCompressionAlgorithm, ...] = ()
         self._psk_key_exchange_modes: tuple[PskKeyExchangeMode, ...] = ()
         self._delegated_credential_schemes: tuple[SignatureScheme, ...] = ()
         self._record_size_limit: int | None = None
@@ -425,9 +387,7 @@ class ClientHelloParser:
             reader.take(Width.RECORD_VERSION)
             fragment = reader.vector(Width.RECORD_LENGTH)
             if content_type != ContentType.handshake:
-                raise ParseError(
-                    f"record type {content_type:#04x} is not a handshake record"
-                )
+                raise ParseError(f"record type {content_type:#04x} is not a handshake record")
             message += fragment
             header = Width.HANDSHAKE_TYPE + Width.HANDSHAKE_LENGTH
             if len(message) >= header and len(message) >= header + int.from_bytes(
@@ -441,9 +401,7 @@ class ClientHelloParser:
         self._supported_versions = (self._legacy_version,)
         body.take(Width.RANDOM)
         body.vector(Width.SESSION_ID_LENGTH)
-        self._cipher_suites = self._typed(
-            CipherSuite, body.integers(Width.CIPHER_SUITES_LENGTH, Width.CIPHER_SUITE)
-        )
+        self._cipher_suites = self._typed(CipherSuite, body.integers(Width.CIPHER_SUITES_LENGTH, Width.CIPHER_SUITE))
         body.vector(Width.COMPRESSION_METHODS_LENGTH)
         if not body.remaining:
             return
@@ -465,9 +423,7 @@ class ClientHelloParser:
                     payload.integers(Width.VERSIONS_LENGTH, Width.VERSION),
                 )
             case ExtensionType.supported_groups:
-                self._supported_groups = self._typed(
-                    NamedGroup, payload.integers(Width.GROUPS_LENGTH, Width.GROUP)
-                )
+                self._supported_groups = self._typed(NamedGroup, payload.integers(Width.GROUPS_LENGTH, Width.GROUP))
             case ExtensionType.ec_point_formats:
                 self._ec_point_formats = self._typed(
                     ECPointFormat,
@@ -476,21 +432,12 @@ class ClientHelloParser:
             case ExtensionType.signature_algorithms:
                 self._signature_algorithms = self._typed(
                     SignatureScheme,
-                    payload.integers(
-                        Width.SIGNATURE_SCHEMES_LENGTH, Width.SIGNATURE_SCHEME
-                    ),
+                    payload.integers(Width.SIGNATURE_SCHEMES_LENGTH, Width.SIGNATURE_SCHEME),
                 )
             case ExtensionType.application_layer_protocol_negotiation:
-                self._application_protocols = payload.strings(
-                    Width.PROTOCOL_NAMES_LENGTH, Width.PROTOCOL_NAME_LENGTH
-                )
-            case (
-                ExtensionType.application_settings
-                | ExtensionType.application_settings_old
-            ):
-                self._application_settings = payload.strings(
-                    Width.PROTOCOL_NAMES_LENGTH, Width.PROTOCOL_NAME_LENGTH
-                )
+                self._application_protocols = payload.strings(Width.PROTOCOL_NAMES_LENGTH, Width.PROTOCOL_NAME_LENGTH)
+            case ExtensionType.application_settings | ExtensionType.application_settings_old:
+                self._application_settings = payload.strings(Width.PROTOCOL_NAMES_LENGTH, Width.PROTOCOL_NAME_LENGTH)
             case ExtensionType.key_share:
                 shares = WireReader(payload.vector(Width.KEY_SHARES_LENGTH))
                 groups: list[int] = []
@@ -506,25 +453,19 @@ class ClientHelloParser:
             case ExtensionType.compress_certificate:
                 self._certificate_compression_algorithms = self._typed(
                     CertificateCompressionAlgorithm,
-                    payload.integers(
-                        Width.COMPRESSION_ALGORITHMS_LENGTH, Width.COMPRESSION_ALGORITHM
-                    ),
+                    payload.integers(Width.COMPRESSION_ALGORITHMS_LENGTH, Width.COMPRESSION_ALGORITHM),
                 )
             case ExtensionType.delegated_credential:
                 self._delegated_credential_schemes = self._typed(
                     SignatureScheme,
-                    payload.integers(
-                        Width.SIGNATURE_SCHEMES_LENGTH, Width.SIGNATURE_SCHEME
-                    ),
+                    payload.integers(Width.SIGNATURE_SCHEMES_LENGTH, Width.SIGNATURE_SCHEME),
                 )
             case ExtensionType.record_size_limit:
                 self._record_size_limit = payload.integer(Width.RECORD_SIZE_LIMIT)
             case ExtensionType.trust_anchors:
                 self._trust_anchor_ids = tuple(
                     TrustAnchorIdentifier.decode(identifier)
-                    for identifier in payload.strings(
-                        Width.TRUST_ANCHORS_LENGTH, Width.TRUST_ANCHOR_LENGTH
-                    )
+                    for identifier in payload.strings(Width.TRUST_ANCHORS_LENGTH, Width.TRUST_ANCHOR_LENGTH)
                 )
             case _:
                 # the other extensions carry no field of the model; their presence and order is what counts

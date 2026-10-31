@@ -121,9 +121,7 @@ class ProxyCredentials(Value):
 
     @property
     def basic(self) -> str:
-        token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode(
-            "ascii"
-        )
+        token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode("ascii")
         return f"Basic {token}"
 
 
@@ -173,9 +171,7 @@ class Proxy(Value):
             raise ParseError(f"the proxy URL {url!r} names no host")
         credentials = None
         if parts.username is not None:
-            credentials = ProxyCredentials(
-                unquote(parts.username), unquote(parts.password or "")
-            )
+            credentials = ProxyCredentials(unquote(parts.username), unquote(parts.password or ""))
         return cls(
             scheme=scheme,
             host=parts.hostname,
@@ -234,17 +230,11 @@ class ConnectHandshake(ProxyHandshake):
     @override
     def first(self) -> Step:
         host, port = self.destination
-        authority = (
-            f"[{host}]:{port}"
-            if ":" in host
-            else f"{host.encode('idna').decode('ascii')}:{port}"
-        )
+        authority = f"[{host}]:{port}" if ":" in host else f"{host.encode('idna').decode('ascii')}:{port}"
         lines = [f"CONNECT {authority} HTTP/1.1", f"Host: {authority}"]
         if self.proxy.credentials is not None:
             lines.append(f"Proxy-Authorization: {self.proxy.credentials.basic}")
-        request = (
-            self.LINE_END.join(line.encode("ascii") for line in lines) + self.HEAD_END
-        )
+        request = self.LINE_END.join(line.encode("ascii") for line in lines) + self.HEAD_END
         return Step(request, Terminator(self.HEAD_END))
 
     @override
@@ -293,9 +283,7 @@ class Socks4Handshake(ProxyHandshake):
     @override
     def next(self, reply: bytes) -> Step | None:
         if reply[1] != Socks4Reply.GRANTED:
-            raise ProxyError(
-                f"SOCKS4 CONNECT failed: {self.reply_name(Socks4Reply, reply[1])}"
-            )
+            raise ProxyError(f"SOCKS4 CONNECT failed: {self.reply_name(Socks4Reply, reply[1])}")
         return None
 
 
@@ -310,9 +298,7 @@ class Socks5State(StrEnum):
 
 class Socks5Handshake(ProxyHandshake):
     # RFC 1928 with RFC 1929 username and password authentication, for CONNECT and UDP ASSOCIATE
-    def __init__(
-        self, proxy: Proxy, destination: tuple[str, int], command: SocksCommand
-    ) -> None:
+    def __init__(self, proxy: Proxy, destination: tuple[str, int], command: SocksCommand) -> None:
         super().__init__(proxy, destination)
         self.command = command
         self._state = Socks5State.GREETING
@@ -356,16 +342,9 @@ class Socks5Handshake(ProxyHandshake):
             username = self.proxy.credentials.username.encode()
             password = self.proxy.credentials.password.encode()
             if len(username) > Limit.CREDENTIAL or len(password) > Limit.CREDENTIAL:
-                raise ProxyError(
-                    f"SOCKS5 limits the username and the password to {Limit.CREDENTIAL} bytes each"
-                )
+                raise ProxyError(f"SOCKS5 limits the username and the password to {Limit.CREDENTIAL} bytes each")
             self._state = Socks5State.AUTHENTICATION
-            request = (
-                bytes((UsernamePassword.VERSION, len(username)))
-                + username
-                + bytes((len(password),))
-                + password
-            )
+            request = bytes((UsernamePassword.VERSION, len(username))) + username + bytes((len(password),)) + password
             return Step(request, Length(Width.AUTHENTICATION_REPLY))
         if method != Socks5Method.NO_AUTHENTICATION:
             raise ProxyError(
@@ -383,9 +362,7 @@ class Socks5Handshake(ProxyHandshake):
         self._state = Socks5State.REQUEST
         request = (
             bytes((SocksVersion.SOCKS5, self.command, 0))
-            + Socks5Address.encode(
-                host, names_allowed=self.proxy.scheme is ProxyScheme.SOCKS5H
-            )
+            + Socks5Address.encode(host, names_allowed=self.proxy.scheme is ProxyScheme.SOCKS5H)
             + struct.pack("!H", port)
         )
         return Step(request, Length(Width.REPLY_HEAD))
@@ -395,9 +372,7 @@ class Socks5Handshake(ProxyHandshake):
         if version != SocksVersion.SOCKS5:
             raise ProxyError("the SOCKS5 proxy answered with another protocol version")
         if code != Socks5Reply.SUCCEEDED:
-            raise ProxyError(
-                f"SOCKS5 {self.command.name} failed: {self.reply_name(Socks5Reply, code)}"
-            )
+            raise ProxyError(f"SOCKS5 {self.command.name} failed: {self.reply_name(Socks5Reply, code)}")
         match address_type:
             case Socks5AddressType.IPV4:
                 self._address_type, self._address_length = (
@@ -414,9 +389,7 @@ class Socks5Handshake(ProxyHandshake):
                 self._state = Socks5State.ADDRESS_LENGTH
                 return Step(b"", Length(Width.DOMAIN_LENGTH))
             case _:
-                raise ProxyError(
-                    f"the SOCKS5 proxy bound an address of unknown type {address_type:#04x}"
-                )
+                raise ProxyError(f"the SOCKS5 proxy bound an address of unknown type {address_type:#04x}")
         self._state = Socks5State.ADDRESS
         return Step(b"", Length(self._address_length + Width.PORT))
 
@@ -441,11 +414,7 @@ class Socks5Address:
             if len(name) > Limit.NAME:
                 raise ProxyError(f"SOCKS5 limits domain names to {Limit.NAME} bytes")
             return bytes((Socks5AddressType.DOMAIN_NAME, len(name))) + name
-        address_type = (
-            Socks5AddressType.IPV4
-            if isinstance(literal, ipaddress.IPv4Address)
-            else Socks5AddressType.IPV6
-        )
+        address_type = Socks5AddressType.IPV4 if isinstance(literal, ipaddress.IPv4Address) else Socks5AddressType.IPV6
         return bytes((address_type,)) + literal.packed
 
 
@@ -456,31 +425,20 @@ class Socks5Datagram:
     @classmethod
     def wrap(cls, destination: tuple[str, int], payload: bytes) -> bytes:
         host, port = destination
-        return (
-            cls.HEADER_START
-            + Socks5Address.encode(host, names_allowed=True)
-            + struct.pack("!H", port)
-            + payload
-        )
+        return cls.HEADER_START + Socks5Address.encode(host, names_allowed=True) + struct.pack("!H", port) + payload
 
     @classmethod
     def unwrap(cls, datagram: bytes) -> bytes:
         header = len(cls.HEADER_START)
         if len(datagram) <= header or datagram[:header] != cls.HEADER_START:
-            raise ProxyError(
-                "the SOCKS5 relay sent a fragmented or truncated UDP datagram"
-            )
+            raise ProxyError("the SOCKS5 relay sent a fragmented or truncated UDP datagram")
         match datagram[header]:
             case Socks5AddressType.IPV4:
                 start = header + 1 + Width.IPV4 + Width.PORT
             case Socks5AddressType.IPV6:
                 start = header + 1 + Width.IPV6 + Width.PORT
             case Socks5AddressType.DOMAIN_NAME:
-                start = (
-                    header + 1 + Width.DOMAIN_LENGTH + datagram[header + 1] + Width.PORT
-                )
+                start = header + 1 + Width.DOMAIN_LENGTH + datagram[header + 1] + Width.PORT
             case _:
-                raise ProxyError(
-                    f"the SOCKS5 relay sent an address of unknown type {datagram[header]:#04x}"
-                )
+                raise ProxyError(f"the SOCKS5 relay sent an address of unknown type {datagram[header]:#04x}")
         return datagram[start:]

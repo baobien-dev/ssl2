@@ -49,12 +49,8 @@ class TLSClientConfiguration(Value):
             self.lowest_supported_version,
             self.highest_supported_version,
         )
-        if self.client_hello is not None and any(
-            value is not None for value in described
-        ):
-            raise ConfigurationError(
-                "client_hello already describes the ciphers, inner protocols and versions"
-            )
+        if self.client_hello is not None and any(value is not None for value in described):
+            raise ConfigurationError("client_hello already describes the ciphers, inner protocols and versions")
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,9 +124,7 @@ class ServerContext(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class TLSImplementation[ClientContextT: ClientContext, ServerContextT: ServerContext](
-    Value
-):
+class TLSImplementation[ClientContextT: ClientContext, ServerContextT: ServerContext](Value):
     client_context: type[ClientContextT]
     server_context: type[ServerContextT]
     validate_config: Callable[[TLSClientConfiguration | TLSServerConfiguration], None]
@@ -199,9 +193,7 @@ class Connected(Value):
 class TLSSocket:
     logger = logging.getLogger("ssl2")
 
-    def __init__(
-        self, context: ClientContext | ServerContext, state: Listening | Connected
-    ) -> None:
+    def __init__(self, context: ClientContext | ServerContext, state: Listening | Connected) -> None:
         self._context = context
         self._state = state
         self._unsent = b""
@@ -221,15 +213,11 @@ class TLSSocket:
         trace: Trace | None = None,
     ) -> Self:
         trace = trace or Trace()
-        buffer = context.create_buffer(
-            address[0] if server_hostname is None else server_hostname
-        )
+        buffer = context.create_buffer(address[0] if server_hostname is None else server_hostname)
         if proxy is None:
             with trace.span(Phase.CONNECT):
                 tcp_socket = socket.create_connection(address, timeout=timeout)
-            cls.logger.info(
-                "%s host=%s port=%d", Event.CONNECTED, address[0], address[1]
-            )
+            cls.logger.info("%s host=%s port=%d", Event.CONNECTED, address[0], address[1])
             return cls.open_socket(context, buffer, tcp_socket, trace)
         if proxy.scheme is ProxyScheme.HTTPS:
             hop = cls.connect(
@@ -395,9 +383,7 @@ class TLSSocket:
         host, port = destination
         with trace.span(Phase.PROXY):
             if (family := proxy.scheme.local_address_family) is not None:
-                host = str(
-                    socket.getaddrinfo(host, port, family, socket.SOCK_STREAM)[0][4][0]
-                )
+                host = str(socket.getaddrinfo(host, port, family, socket.SOCK_STREAM)[0][4][0])
             handshake = proxy.handshake((host, port))
             pending = bytearray()
             step = handshake.first()
@@ -408,9 +394,7 @@ class TLSSocket:
                 while not (end := step.reply_end(bytes(pending))):
                     piece = transport.recv(Limit.RECEIVE)
                     if not piece:
-                        raise ProxyError(
-                            "the proxy closed the connection during the tunnel handshake"
-                        )
+                        raise ProxyError("the proxy closed the connection during the tunnel handshake")
                     pending += piece
                 reply = bytes(pending[:end])
                 del pending[:end]
@@ -458,11 +442,7 @@ class TLSSocket:
         return self._state
 
     def _endpoint(self) -> Transport:
-        return (
-            self._state.listener
-            if isinstance(self._state, Listening)
-            else self._state.transport
-        )
+        return self._state.listener if isinstance(self._state, Listening) else self._state.transport
 
     def _run[ResultT](self, operation: Callable[[], ResultT]) -> ResultT:
         connection = self._connected()

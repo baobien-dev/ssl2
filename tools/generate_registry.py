@@ -44,9 +44,7 @@ class Download:
     def text(host: Host, path: str) -> str:
         connection = HTTPSConnection(host)
         try:
-            connection.request(
-                "GET", path, headers={"User-Agent": "ssl2 tools/generate_registry"}
-            )
+            connection.request("GET", path, headers={"User-Agent": "ssl2 tools/generate_registry"})
             response = connection.getresponse()
             body = response.read()
         finally:
@@ -69,9 +67,7 @@ class RegistryGenerator:
     # RFC 8701 section 2: the reserved values, both bytes equal with a low nibble of 0xA, and the eight one-byte values
     TWO_BYTE_GREASE = tuple(0x0A0A + 0x1010 * step for step in range(16))
     ONE_BYTE_GREASE = (0x0B, 0x2A, 0x49, 0x68, 0x87, 0xA6, 0xC5, 0xE4)
-    BORINGSSL_RENAMES: ClassVar[dict[str, str]] = {
-        "next_proto_neg": "next_protocol_negotiation"
-    }
+    BORINGSSL_RENAMES: ClassVar[dict[str, str]] = {"next_proto_neg": "next_protocol_negotiation"}
     ALPN_RENAMES: ClassVar[dict[bytes, str]] = {
         b"http/1.1": "HTTP1",
         b"stun.turn": "TURN",
@@ -152,12 +148,8 @@ class RegistryGenerator:
     )
 
     def __init__(self) -> None:
-        self.output = (
-            Path(__file__).resolve().parents[1] / "src" / "ssl2" / "registry.py"
-        )
-        self.boringssl_commit = str(
-            json.loads(Download.text(Host.GITHUB_API, self.BORINGSSL_HEAD))["sha"]
-        )
+        self.output = Path(__file__).resolve().parents[1] / "src" / "ssl2" / "registry.py"
+        self.boringssl_commit = str(json.loads(Download.text(Host.GITHUB_API, self.BORINGSSL_HEAD))["sha"])
 
     def run(self) -> None:
         lines = self.header() + self.preamble()
@@ -170,15 +162,10 @@ class RegistryGenerator:
             counts[registry.class_name] = len(members)
         protocols = self.alpn_members()
         lines += ["", "", "class NextProtocol(Enum):"]
-        lines += [
-            f'    {label} = b"{identifier.decode("ascii")}"'
-            for identifier, label in protocols.items()
-        ]
+        lines += [f'    {label} = b"{identifier.decode("ascii")}"' for identifier, label in protocols.items()]
         counts["NextProtocol"] = len(protocols)
         self.output.write_text("\n".join(lines) + "\n")
-        print(
-            self.output, " ".join(f"{name}={count}" for name, count in counts.items())
-        )
+        print(self.output, " ".join(f"{name}={count}" for name, count in counts.items()))
 
     def header(self) -> list[str]:
         today = datetime.now(UTC).date().isoformat()
@@ -249,9 +236,7 @@ class RegistryGenerator:
             "    DTLS_1_2 = 0xFEFD",
             "    DTLS_1_3 = 0xFEFC",
         ]
-        lines += [
-            f"    GREASE_{value:04X} = 0x{value:04X}" for value in self.TWO_BYTE_GREASE
-        ]
+        lines += [f"    GREASE_{value:04X} = 0x{value:04X}" for value in self.TWO_BYTE_GREASE]
         lines += [
             "",
             "    @classmethod",
@@ -307,24 +292,14 @@ class RegistryGenerator:
         for row in self.rows(registry.path):
             value = self.value_of(row[registry.value_column])
             label = row[registry.name_column].strip()
-            if (
-                value is None
-                or not label
-                or label.startswith(("Unassigned", "Reserved"))
-            ):
+            if value is None or not label or label.startswith(("Unassigned", "Reserved")):
                 continue
             label = self.PARENTHESIZED_WORD.sub(r"_\1", label)
-            label = (
-                self.PARENTHESIZED.sub("", label)
-                .removesuffix("_RESERVED")
-                .removeprefix(registry.strip_prefix)
-            )
+            label = self.PARENTHESIZED.sub("", label).removesuffix("_RESERVED").removeprefix(registry.strip_prefix)
             if not self.IDENTIFIER.fullmatch(label):
                 raise ValueError(f"{registry.path}: {label!r} is not an identifier")
             if value in result:
-                raise ValueError(
-                    f"{registry.path}: {value:#x} is both {result[value]} and {label}"
-                )
+                raise ValueError(f"{registry.path}: {value:#x} is both {result[value]} and {label}")
             result[value] = label
         grease = (
             self.TWO_BYTE_GREASE
@@ -336,9 +311,7 @@ class RegistryGenerator:
         width = 4 if registry.two_byte_grease else 2
         for value in grease:
             if value in result:
-                raise ValueError(
-                    f"{registry.path}: GREASE value {value:#x} is assigned to {result[value]}"
-                )
+                raise ValueError(f"{registry.path}: GREASE value {value:#x} is assigned to {result[value]}")
             result[value] = f"GREASE_{value:0{width}X}"
         return result
 
@@ -358,12 +331,9 @@ class RegistryGenerator:
             if row[Column.PROTOCOL].strip().startswith("Reserved"):
                 continue
             sequence = row[Column.SEQUENCE].split("(")[0]
-            identifier = bytes(
-                int(token, 16) for token in self.ALPN_BYTE.findall(sequence)
-            )
+            identifier = bytes(int(token, 16) for token in self.ALPN_BYTE.findall(sequence))
             label = (
-                self.ALPN_RENAMES.get(identifier)
-                or self.NOT_IDENTIFIER.sub("_", identifier.decode("ascii")).upper()
+                self.ALPN_RENAMES.get(identifier) or self.NOT_IDENTIFIER.sub("_", identifier.decode("ascii")).upper()
             )
             if not self.IDENTIFIER.fullmatch(label):
                 raise ValueError(f"ALPN identifier {identifier!r} gives no identifier")

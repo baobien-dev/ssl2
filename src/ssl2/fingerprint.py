@@ -44,9 +44,7 @@ class JA3(Value):
     def parse(cls, text: str) -> Self:
         fields = text.split(",")
         if len(fields) != JA3Shape.FIELDS:
-            raise ParseError(
-                f"JA3 text has {JA3Shape.FIELDS} comma separated fields, not {len(fields)}"
-            )
+            raise ParseError(f"JA3 text has {JA3Shape.FIELDS} comma separated fields, not {len(fields)}")
         version, cipher_suites, extensions, supported_groups, ec_point_formats = fields
         return cls(
             ProtocolVersion(int(version)),
@@ -88,9 +86,7 @@ class JA3(Value):
         return "-".join(str(int(value)) for value in values)
 
     @staticmethod
-    def _values[CodePointT: CodePoint](
-        registry: type[CodePointT], text: str
-    ) -> tuple[CodePointT, ...]:
+    def _values[CodePointT: CodePoint](registry: type[CodePointT], text: str) -> tuple[CodePointT, ...]:
         return tuple(registry(int(value)) for value in text.split("-") if value)
 
 
@@ -169,9 +165,7 @@ class JA4(Value):
     NO_PROTOCOL_CODE = "00"
 
     @classmethod
-    def of(
-        cls, client_hello: ClientHello, transport: JA4Transport = JA4Transport.TCP
-    ) -> Self:
+    def of(cls, client_hello: ClientHello, transport: JA4Transport = JA4Transport.TCP) -> Self:
         return cls(
             transport,
             JA4Version.of(client_hello.highest_version),
@@ -194,13 +188,9 @@ class JA4(Value):
             )
         prefix = sections[0]
         if len(prefix) != JA4Shape.PREFIX:
-            raise ParseError(
-                f"the JA4 prefix is {JA4Shape.PREFIX} characters, not {len(prefix)}"
-            )
+            raise ParseError(f"the JA4 prefix is {JA4Shape.PREFIX} characters, not {len(prefix)}")
         if any(cls._is_hash(section) for section in sections[1 : JA4Shape.SECTIONS]):
-            raise ParseError(
-                "hashed JA4 carries no cipher or extension lists; parse the raw or original form"
-            )
+            raise ParseError("hashed JA4 carries no cipher or extension lists; parse the raw or original form")
         signature_algorithms = (
             cls._values(SignatureScheme, sections[JA4Shape.SECTIONS])
             if len(sections) == JA4Shape.SECTIONS_WITH_SIGNATURES
@@ -227,12 +217,12 @@ class JA4(Value):
 
     @property
     def prefix(self) -> str:
-        server_name = (
-            JA4ServerName.DOMAIN if self.server_name_indicated else JA4ServerName.IP
-        )
+        server_name = JA4ServerName.DOMAIN if self.server_name_indicated else JA4ServerName.IP
         ciphers = min(self.cipher_count, JA4Shape.COUNT_LIMIT)
         extensions = min(self.extension_count, JA4Shape.COUNT_LIMIT)
-        return f"{self.transport}{self.version}{server_name}{ciphers:02d}{extensions:02d}{self.application_protocol_code}"
+        return (
+            f"{self.transport}{self.version}{server_name}{ciphers:02d}{extensions:02d}{self.application_protocol_code}"
+        )
 
     @property
     def text(self) -> str:
@@ -264,11 +254,7 @@ class JA4(Value):
 
     @property
     def _sorted_extensions(self) -> str:
-        kept = sorted(
-            extension.hex
-            for extension in self.extensions
-            if extension not in self.UNHASHED_EXTENSIONS
-        )
+        kept = sorted(extension.hex for extension in self.extensions if extension not in self.UNHASHED_EXTENSIONS)
         return self._with_signature_algorithms(",".join(kept))
 
     def _with_signature_algorithms(self, extensions: str) -> str:
@@ -281,9 +267,7 @@ class JA4(Value):
         return ",".join(value.hex for value in values)
 
     @staticmethod
-    def _values[CodePointT: CodePoint](
-        registry: type[CodePointT], text: str
-    ) -> tuple[CodePointT, ...]:
+    def _values[CodePointT: CodePoint](registry: type[CodePointT], text: str) -> tuple[CodePointT, ...]:
         return tuple(registry(int(value, 16)) for value in text.split(",") if value)
 
     @staticmethod
@@ -324,9 +308,7 @@ class Http2Setting(Value):
     def parse(cls, text: str) -> Self:
         identifier, separator, value = text.partition(":")
         if not separator:
-            raise ParseError(
-                f"an HTTP/2 setting is written identifier:value, not {text!r}"
-            )
+            raise ParseError(f"an HTTP/2 setting is written identifier:value, not {text!r}")
         return cls(Http2SettingIdentifier(int(identifier)), int(value))
 
     @property
@@ -349,9 +331,7 @@ class Http2Priority(Value):
     def parse(cls, text: str) -> Self:
         fields = text.split(":")
         if len(fields) != PriorityShape.FIELDS:
-            raise ParseError(
-                f"an HTTP/2 priority is written stream:exclusive:dependency:weight, not {text!r}"
-            )
+            raise ParseError(f"an HTTP/2 priority is written stream:exclusive:dependency:weight, not {text!r}")
         stream_id, exclusive, dependency, weight = fields
         return cls(int(stream_id), bool(int(exclusive)), int(dependency), int(weight))
 
@@ -377,9 +357,7 @@ class AkamaiFingerprint(Value):
     def parse(cls, text: str) -> Self:
         parts = text.split("|")
         if len(parts) != AkamaiShape.PARTS:
-            raise ParseError(
-                f"an Akamai fingerprint has {AkamaiShape.PARTS} pipe separated parts, not {len(parts)}"
-            )
+            raise ParseError(f"an Akamai fingerprint has {AkamaiShape.PARTS} pipe separated parts, not {len(parts)}")
         settings, window_update, priorities, order = parts
         return cls(
             tuple(Http2Setting.parse(item) for item in settings.split(";") if item),
@@ -392,10 +370,7 @@ class AkamaiFingerprint(Value):
 
     @property
     def text(self) -> str:
-        priorities = (
-            ",".join(priority.text for priority in self.priorities)
-            or self.NO_PRIORITIES
-        )
+        priorities = ",".join(priority.text for priority in self.priorities) or self.NO_PRIORITIES
         return "|".join(
             (
                 ";".join(setting.text for setting in self.settings),
