@@ -83,6 +83,8 @@ class ClientHello(Value):
     trust_anchor_ids: tuple[str, ...] = ()
     grease: bool = False
     permute_extensions: bool = False
+    # clients from before August 2026 pad a ClientHello of 256 to 511 bytes up to 512 with the padding extension
+    legacy_padding: bool = False
 
     def __post_init__(self) -> None:
         if len(set(self.extensions)) != len(self.extensions):
@@ -106,6 +108,8 @@ class ClientHello(Value):
             raise ConfigurationError("key_share_groups must follow the order of supported_groups")
         if not self.offers(ExtensionType.supported_versions) and self.supported_versions != (self.legacy_version,):
             raise ConfigurationError("without the supported_versions extension only the legacy version is offered")
+        if self.legacy_padding and not self.offers(ExtensionType.padding):
+            raise ConfigurationError("legacy_padding sends the padding extension; list padding among the extensions")
 
     def offers(self, extension: ExtensionType) -> bool:
         return extension in self.extensions
@@ -208,6 +212,7 @@ class ClientHelloBuilder:
         self._trust_anchor_ids: tuple[str, ...] = ()
         self._grease = False
         self._permute_extensions = False
+        self._legacy_padding = False
 
     def legacy_version(self, version: ProtocolVersion | int) -> Self:
         self._legacy_version = ProtocolVersion(version)
@@ -279,6 +284,10 @@ class ClientHelloBuilder:
         self._permute_extensions = enabled
         return self
 
+    def legacy_padding(self, *, enabled: bool = True) -> Self:
+        self._legacy_padding = enabled
+        return self
+
     def build(self) -> ClientHello:
         return ClientHello(
             legacy_version=self._legacy_version,
@@ -298,6 +307,7 @@ class ClientHelloBuilder:
             trust_anchor_ids=self._trust_anchor_ids,
             grease=self._grease,
             permute_extensions=self._permute_extensions,
+            legacy_padding=self._legacy_padding,
         )
 
     @staticmethod
