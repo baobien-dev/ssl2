@@ -45,6 +45,7 @@ ignore = [
 max-complexity = 20  # a wire parser has one match arm per tag
 
 [tool.ruff.lint.pylint]
+max-args = 8  # a connect call names the proxy, its context, the server name and the trace
 max-branches = 20  # the same match statements
 max-returns = 12  # a registry mapping returns one member per arm
 
