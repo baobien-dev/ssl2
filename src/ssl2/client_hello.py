@@ -87,6 +87,11 @@ class ClientHello(Value):
     legacy_padding: bool = False
 
     def __post_init__(self) -> None:
+        # a code point given as its number, as replace() or a captured fingerprint hands it in, becomes the member
+        object.__setattr__(self, "legacy_version", ProtocolVersion(self.legacy_version))
+        for name, registry in self._registries():
+            members = tuple(registry(value) for value in getattr(self, name))
+            object.__setattr__(self, name, members)
         if len(set(self.extensions)) != len(self.extensions):
             raise ConfigurationError("extensions must not repeat")
         if len(set(self.supported_versions)) != len(self.supported_versions):
@@ -121,6 +126,21 @@ class ClientHello(Value):
     @property
     def lowest_version(self) -> ProtocolVersion:
         return min(self.supported_versions)
+
+    @staticmethod
+    def _registries() -> tuple[tuple[str, type[CodePoint]], ...]:
+        return (
+            ("supported_versions", ProtocolVersion),
+            ("cipher_suites", CipherSuite),
+            ("extensions", ExtensionType),
+            ("supported_groups", NamedGroup),
+            ("key_share_groups", NamedGroup),
+            ("ec_point_formats", ECPointFormat),
+            ("signature_algorithms", SignatureScheme),
+            ("certificate_compression_algorithms", CertificateCompressionAlgorithm),
+            ("psk_key_exchange_modes", PskKeyExchangeMode),
+            ("delegated_credential_schemes", SignatureScheme),
+        )
 
     def _code_point_lists(self) -> tuple[tuple[str, tuple[CodePoint, ...]], ...]:
         return (
