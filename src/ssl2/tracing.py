@@ -38,7 +38,8 @@ class Span(Value):
 
 
 class Timing:
-    def __init__(self, trace: Trace, name: str) -> None:
+    # times one step; with no trace to record on it costs a clock read and nothing else
+    def __init__(self, trace: Trace | None, name: str) -> None:
         self._trace = trace
         self._name = name
         self._start = 0.0
@@ -52,7 +53,8 @@ class Timing:
         error: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self._trace.record(Span(self._name, self._start, monotonic()))
+        if self._trace is not None:
+            self._trace.record(Span(self._name, self._start, monotonic()))
 
 
 class Trace:
@@ -65,6 +67,11 @@ class Trace:
 
     def span(self, name: str) -> Timing:
         return Timing(self, name)
+
+    @staticmethod
+    def timing(trace: Trace | None, name: str) -> Timing:
+        # the span of a step on a trace the caller may not have asked for
+        return Timing(trace, name)
 
     def record(self, span: Span) -> None:
         self.spans.append(span)
