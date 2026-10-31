@@ -36,6 +36,18 @@ ignore = [
     "TRY003",  # a message is written in the raise
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"src/ssl2/errors.py" = ["N818"]  # RaggedEOF is the name PEP 748 gives it
+"src/ssl2/registry.py" = ["N815"]  # IANA names such as brainpoolP256r1 are kept as registered
+"tools/*" = ["INP001", "T201"]  # standalone scripts that report to the person running them
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20  # a wire parser has one match arm per tag
+
+[tool.ruff.lint.pylint]
+max-branches = 20  # the same match statements
+max-returns = 12  # a registry mapping returns one member per arm
+
 [tool.basedpyright]
 typeCheckingMode = "strict"
 reportImplicitOverride = true
