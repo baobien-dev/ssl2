@@ -1,17 +1,41 @@
 [project]
 name = "ssl2"
-version = "2.2.0"
-description = "PEP 748 TLS interface: typed ClientHello model and parser, JA3, JA4 and Akamai fingerprints, proxies, sockets and asyncio streams"
+version = "0.1.0"
+description = "PEP 748 TLS interface with a ClientHello model and parser, JA3, JA4 and Akamai fingerprints, proxies, sockets and streams"
 readme = "README.md"
+authors = [
+    { name = "Huynh Bao Bien", email = "276976028+baobien-dev@users.noreply.github.com" }
+]
 requires-python = ">=3.14"
 dependencies = []
 
 [project.urls]
 Repository = "https://github.com/baobien-dev/ssl2"
 
-[tool.basedpyright]
-typeCheckingMode = "strict"
-
 [build-system]
 requires = ["uv_build>=0.13.0,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "ruff>=0.17.3",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",  # the formatter places trailing commas
+    "CPY",     # no copyright headers
+    "D",       # no docstrings
+    "E501",    # the formatter wraps lines
+    "EM",      # a message is written in the raise
+    "TC",      # imports stay at the top, not under TYPE_CHECKING
+    "TRY003",  # a message is written in the raise
+]
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+reportImplicitOverride = true
+reportImportCycles = true
+reportUnnecessaryTypeIgnoreComment = true
